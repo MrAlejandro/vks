@@ -1,3 +1,4 @@
+import time
 import scrapy
 from scrapy.selector import Selector
 
@@ -14,7 +15,10 @@ class QuotesSpider(scrapy.Spider):
 
         if followers_link:
             offset = 0
-            yield scrapy.Request(url=followers_link + '&offset=' + str(offset), callback=self.process_users_bunch)
+
+            for offset in range(0, 700, 20):
+                yield scrapy.Request(url=followers_link + '&offset=' + str(offset), callback=self.process_users_bunch)
+                time.sleep(0.5)
 
         else:
             pass
