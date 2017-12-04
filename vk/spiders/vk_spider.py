@@ -17,7 +17,7 @@ class QuotesSpider(scrapy.Spider):
             offset = 0
 
             for offset in range(0, 700, 20):
-                yield scrapy.Request(url=followers_link + '&offset=' + str(offset), callback=self.process_users_bunch)
+                yield scrapy.Request(url=followers_link + '&offset=' + str(offset), callback=self.process_users_bunch, priority=1)
                 time.sleep(0.5)
 
         else:
