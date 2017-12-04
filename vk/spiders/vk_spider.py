@@ -1,5 +1,5 @@
 import scrapy
-
+from scrapy.selector import Selector
 
 class QuotesSpider(scrapy.Spider):
     name = 'vk'
@@ -28,14 +28,34 @@ class QuotesSpider(scrapy.Spider):
             yield scrapy.Request(url=profile_url[0], callback=self.parse_user_profile)
 
     def parse_user_profile(self, response):
-        name = response.selector.xpath('//h2[@class="page_name"]/text()').extract()
-        if not name:
-            print(response.body)
+        name = response.selector.xpath('//h2[@class="page_name"]/text()').extract_first()
 
-        yield {
+        if not name:
+            # TODO: notify of error
+            pass
+
+        user_data = {
             'url': response.url,
             'name': name,
         }
+
+        for row in response.selector.xpath('//div[contains(@class, "profile_info_row")]'):
+            key = row.xpath('./div[contains(@class, "label")]/text()').extract_first()
+            links = row.xpath('./div[contains(@class, "labeled")]/a/text()').extract()
+            value = ' '.join(links)
+
+            if not value:
+                value = row.xpath('./div[contains(@class, "labeled")]/text()').extract_first()
+            else:
+                url = row.xpath('./div[contains(@class, "labeled")]/a/@href').extract_first()
+
+                if url and not url[0] == '/':
+                    value += ' (url:' + url + ')'
+
+            if key and value:
+                user_data[key.replace(':', '')] = value.strip()
+
+        yield user_data
 
 
     def parse(self, response):
