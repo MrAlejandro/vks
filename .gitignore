@@ -1,2 +1,3 @@
 *.json
+*.jl
 __pycache__
