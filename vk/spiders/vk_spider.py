@@ -1,13 +1,22 @@
-import time
 import scrapy
 from scrapy.selector import Selector
+import logging
 
-class QuotesSpider(scrapy.Spider):
+class VkSpider(scrapy.Spider):
     name = 'vk'
     vk_url = 'https://vk.com'
+    group_url = ''
+    priority = 1
+
+    def __init__(self, group='', *args, **kwargs):
+        super(VkSpider, self).__init__(*args, **kwargs)
+        self.group_url = group
 
     def start_requests(self):
-        yield scrapy.Request(url='https://vk.com/eminlive', callback=self.fetch_group_users)
+        if self.group_url:
+            yield scrapy.Request(url=self.group_url, callback=self.fetch_group_users)
+        else:
+            logging.error("You should pass VK group URL, ex: \033[1;31mscrapy crawl vk -o users.jl -a group=https://vk.com/eminlive\033[0m")
 
     def fetch_group_users(self, response):
         followers_link = response.selector.xpath('//div[@id="public_followers"]/a/@href').extract_first()
@@ -16,20 +25,23 @@ class QuotesSpider(scrapy.Spider):
         if followers_link:
             offset = 0
 
-            for offset in range(0, 700, 20):
-                yield scrapy.Request(url=followers_link + '&offset=' + str(offset), callback=self.process_users_bunch, priority=1)
-                time.sleep(0.5)
+            for offset in range(0, 1000, 20):
+                yield scrapy.Request(url=followers_link + '&c[sex]=1&offset=' + str(offset), callback=self.process_users_bunch, priority=self.priority)
+                yield scrapy.Request(url=followers_link + '&c[sex]=2&offset=' + str(offset), callback=self.process_users_bunch, priority=self.priority+1)
+
+            self.priority += 1
 
         else:
             pass
             # TODO: notify user of error
 
     def process_users_bunch(self, response):
-        users_bunch = response.css('div.people_row div.name a::attr(href)').extract()
+        users_bunch = response.selector.xpath('//div[contains(@class, "info")]/div[contains(@class, "name")]/a/@href').extract()
+        self.priority += 1
 
         for user in users_bunch:
             profile_url = self.vk_url + user.strip(),
-            yield scrapy.Request(url=profile_url[0], callback=self.parse_user_profile)
+            yield scrapy.Request(url=profile_url[0], callback=self.parse_user_profile, priority=self.priority)
 
     def parse_user_profile(self, response):
         name = response.selector.xpath('//h2[@class="page_name"]/text()').extract_first()
@@ -60,11 +72,4 @@ class QuotesSpider(scrapy.Spider):
                 user_data[key.replace(':', '')] = value.strip()
 
         yield user_data
-
-
-    def parse(self, response):
-        yield {
-            't': response.selector.xpath('//h2[@class="page_name"]/text()').extract(),
-            'title': response.css('h2.page_name').extract_first(),
-        }
 
